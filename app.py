@@ -79,34 +79,31 @@ def create_app():
         if len(flask.request.files) != 1:
             return "need exactly one file argument", 400
 
-        if 'public_key' not in flask.request.form:
-            return "public_key is missing", 400
+        param = {}
+        for key in ['public_key', 'signature', 'hash']:
+            if key not in flask.request.form:
+                return f"'{key}' field is missing is missing", 400
 
-        try:
-            pubkey = bytes.fromhex(flask.request.form['public_key'])
-            if pubkey not in whitelist:
-                return 'public key not allowed', 403
-        except:
-            return 'invalid public key', 400
+            try:
+                param[key] = bytes.fromhex(flask.request.form[key])
+            except:
+                return f'malformed {key}', 400
 
-        if 'signature' not in flask.request.form:
-            return "signature is missing", 400
+        if param['public_key'] not in whitelist:
+            return 'public key not allowed', 403
 
-        try:
-            signature = bytes.fromhex(flask.request.form['signature'])
-        except:
+        checksum = sha256(param['hash'])
+        if not check_sig(param['public_key'], checksum, param['signature']):
             return 'invalid signature', 400
 
         (file, ) = flask.request.files.values()
         tmp_path = repo / 'tmp' / request_id
         file.save(tmp_path)
 
-        file_hash = sha256_file(tmp_path)
-        checksum = sha256(file_hash)
-
-        if not check_sig(pubkey, checksum, signature):
+        actual_hash = sha256_file(tmp_path)
+        if actual_hash != param['hash']:
             tmp_path.unlink()
-            return 'invalid signature', 400
+            return 'hash mismatch', 400
 
         hex_cs = checksum.hex()
         final_path = repo / hex_cs[0:4] / hex_cs
@@ -115,7 +112,7 @@ def create_app():
         tmp_path.move(final_path)
 
         try:
-            leaf_hash = sigsum_log.add_leaf(pubkey, file_hash, signature)
+            leaf_hash = sigsum_log.add_leaf(param['public_key'], param['hash'], param['signature'])
         except:
             tmp_path.unlink()
             return 'sigsum submission failed', 500
@@ -124,7 +121,7 @@ def create_app():
             proof = sigsum_log.get_proof(leaf_hash)
         except:
             tmp_path.unlink()
-            return 'sigsum submission failed', 500
+            return 'retrieving proof failed', 500
 
         final_path.with_suffix('.proof').write_text(proof)
 
