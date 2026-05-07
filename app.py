@@ -1,13 +1,14 @@
 import flask
 import uuid
 import os
+import subprocess
+import tempfile
 
 from pathlib import Path
 
 import nacl.signing
 
 from .utils import sha256, sha256_file
-from .sigsum import SigsumLog
 
 def check_sig(pubkey: bytes, checksum: bytes, signature: bytes) -> bool:
     commitment = b'sigsum.org/v1/tree-leaf\0' + checksum
@@ -19,6 +20,29 @@ def check_sig(pubkey: bytes, checksum: bytes, signature: bytes) -> bool:
     except:
         return False
 
+def sigsum_submit(policy: str, message: bytes, signature: bytes, pubkey: bytes) -> str:
+    with tempfile.TemporaryDirectory() as tmp_path:
+        tmp = Path(tmp_path)
+
+        request = f"message={message.hex()}\n"
+        request += f"signature={signature.hex()}\n"
+        request += f"public_key={pubkey.hex()}\n"
+        (tmp / 'request').write_text(request)
+
+        cmd = ['sigsum-submit']
+
+        if policy.startswith('/'):
+            cmd += ['-p', policy]
+        else:
+            cmd += ['-P', policy]
+
+        cmd += ['request']
+
+        proc = subprocess.run(cmd, cwd=tmp)
+        proc.check_returncode()
+
+        return (tmp / 'request.proof').read_text()
+
 
 def create_app():
     app = flask.Flask(__name__)
@@ -28,10 +52,7 @@ def create_app():
         for line in f:
             whitelist.add(bytes.fromhex(line))
 
-    sigsum_log = SigsumLog(
-        os.environ['WINDROW_LOG_ENDPOINT'],
-        bytes.fromhex(os.environ['WINDROW_LOG_PUBKEY'])
-    )
+    sigsum_policy = os.environ['WINDROW_SIGSUM_POLICY']
 
     repo = Path(os.environ['WINDROW_REPO'])
     repo.mkdir(parents=True, exist_ok=True)
@@ -112,16 +133,10 @@ def create_app():
         tmp_path.move(final_path)
 
         try:
-            leaf_hash = sigsum_log.add_leaf(param['public_key'], param['hash'], param['signature'])
+            proof = sigsum_submit(sigsum_policy, param['hash'], param['signature'], param['public_key'])
         except:
-            tmp_path.unlink()
+            final_path.unlink()
             return 'sigsum submission failed', 500
-
-        try:
-            proof = sigsum_log.get_proof(leaf_hash)
-        except:
-            tmp_path.unlink()
-            return 'retrieving proof failed', 500
 
         final_path.with_suffix('.proof').write_text(proof)
 
