@@ -120,6 +120,11 @@ def create_app():
         if not check_sig(param['public_key'], checksum, param['signature']):
             return 'invalid signature', 400
 
+        hex_cs = checksum.hex()
+        final_path = repo / hex_cs[0:4] / hex_cs
+        if final_path.exists():
+            return 'artifact already exists', 409
+
         tmp_path = repo / 'tmp' / request_id
         h = hashlib.sha256()
         with tmp_path.open('wb') as f:
@@ -131,8 +136,6 @@ def create_app():
             tmp_path.unlink()
             return 'hash mismatch', 400
 
-        hex_cs = checksum.hex()
-        final_path = repo / hex_cs[0:4] / hex_cs
         final_path.parent.mkdir(exist_ok=True)
 
         tmp_path.move(final_path)
