@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 
 from pathlib import Path
+from typing import Optional, Tuple
 
 import nacl.signing
 
@@ -21,7 +22,7 @@ def check_sig(pubkey: bytes, checksum: bytes, signature: bytes) -> bool:
     except:
         return False
 
-def sigsum_submit(policy: str, message: bytes, signature: bytes, pubkey: bytes) -> str:
+def sigsum_submit(policy: str, message: bytes, signature: bytes, pubkey: bytes, token: Optional[Tuple[str, str]] = None) -> str:
     with tempfile.TemporaryDirectory() as tmp_path:
         tmp = Path(tmp_path)
 
@@ -36,6 +37,9 @@ def sigsum_submit(policy: str, message: bytes, signature: bytes, pubkey: bytes) 
             cmd += ['-p', policy]
         else:
             cmd += ['-P', policy]
+
+        if token is not None:
+            cmd += ['--token-domain', token[0], '--token-signing-key', token[1]]
 
         cmd += ['request']
 
@@ -54,6 +58,15 @@ def create_app():
             whitelist.add(bytes.fromhex(line))
 
     sigsum_policy = os.environ['WINDROW_SIGSUM_POLICY']
+
+    sigsum_token_domain = os.environ.get('WINDROW_SIGSUM_TOKEN_DOMAIN')
+    sigsum_token_key_path = os.environ.get('WINDROW_SIGSUM_TOKEN_KEY_FILE')
+    if sigsum_token_domain is None and sigsum_token_key_path is None:
+        sigsum_token = None
+    elif sigsum_token_domain is not None and sigsum_token_key_path is not None:
+        sigsum_token = (sigsum_token_domain, sigsum_token_key_path)
+    else:
+        raise RuntimeError('WINDROW_SIGSUM_TOKEN_DOMAIN and WINDROW_SIGSUM_TOKEN_KEY_FILE must be set together')
 
     repo = Path(os.environ['WINDROW_REPO'])
     repo.mkdir(parents=True, exist_ok=True)
@@ -151,7 +164,7 @@ def create_app():
         tmp_path.move(final_path)
 
         try:
-            proof = sigsum_submit(sigsum_policy, param['hash'], param['signature'], param['public_key'])
+            proof = sigsum_submit(sigsum_policy, param['hash'], param['signature'], param['public_key'], sigsum_token)
         except:
             final_path.unlink()
             return 'sigsum submission failed', 500
