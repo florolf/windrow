@@ -1,4 +1,5 @@
 import flask
+import hashlib
 import uuid
 import os
 import subprocess
@@ -8,7 +9,7 @@ from pathlib import Path
 
 import nacl.signing
 
-from .utils import sha256, sha256_file
+from .utils import sha256
 
 def check_sig(pubkey: bytes, checksum: bytes, signature: bytes) -> bool:
     commitment = b'sigsum.org/v1/tree-leaf\0' + checksum
@@ -97,18 +98,20 @@ def create_app():
     def v1_post():
         request_id = str(uuid.uuid4())
 
-        if len(flask.request.files) != 1:
-            return "need exactly one file argument", 400
-
         param = {}
-        for key in ['public_key', 'signature', 'hash']:
-            if key not in flask.request.form:
-                return f"'{key}' field is missing is missing", 400
+        for key, header in [
+            ('public_key', 'X-Windrow-Public-Key'),
+            ('signature', 'X-Windrow-Signature'),
+            ('hash', 'X-Windrow-Hash'),
+        ]:
+            value = flask.request.headers.get(header)
+            if value is None:
+                return f"'{header}' header is missing", 400
 
             try:
-                param[key] = bytes.fromhex(flask.request.form[key])
+                param[key] = bytes.fromhex(value)
             except:
-                return f'malformed {key}', 400
+                return f'malformed {header}', 400
 
         if param['public_key'] not in whitelist:
             return 'public key not allowed', 403
@@ -117,12 +120,14 @@ def create_app():
         if not check_sig(param['public_key'], checksum, param['signature']):
             return 'invalid signature', 400
 
-        (file, ) = flask.request.files.values()
         tmp_path = repo / 'tmp' / request_id
-        file.save(tmp_path)
+        h = hashlib.sha256()
+        with tmp_path.open('wb') as f:
+            while chunk := flask.request.stream.read(1024 * 1024):
+                h.update(chunk)
+                f.write(chunk)
 
-        actual_hash = sha256_file(tmp_path)
-        if actual_hash != param['hash']:
+        if h.digest() != param['hash']:
             tmp_path.unlink()
             return 'hash mismatch', 400
 

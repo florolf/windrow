@@ -12,10 +12,7 @@ In particular it performs authentication against a list of permitted submitters,
 
 Windrow also stores the resulting Sigsum proof next to the artifact. This has the side-effect of acting as a timestamping service via the witness cosignatures in the proof.
 
-**Note:** This is just a quick and dirty POC to illustrate the idea. It has many problems, like:
-
- - Resubmission of the same artifact by different submitters is not handled (there are multiple conceivable ways of going about doing this)
- - The server accepts and temporarily stores any data sent to it and only then performs authentication on it, leading to a DoS vector (the `hash` argument technically could be used to limit this to authenticated users by first checking the leaf signature based on the hash and rejecting the upload otherwise, but this might not actually work given how Flask handles requests)
+**Note:** This is just a quick and dirty POC to illustrate the idea. It has many problems. For example, resubmission of the same artifact by different submitters is not handled (there are multiple conceivable ways of going about doing this).
 
 # Usage
 
@@ -39,10 +36,10 @@ message=5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03
 signature=66b7227d942960f175d33ca2739f3634901635595ecbe931e1739ee970bf42e2605fa2868a6a7efcf3ba6b44436c869217423908d8d36cfa33fed45a66e56408
 public_key=7c67f0e139086212b8dde045dfd12dfc0feecf114327d65943c6e5c269c3d850
 $ curl \
-    -F public_key=7c67f0e139086212b8dde045dfd12dfc0feecf114327d65943c6e5c269c3d850 \
-    -F signature=66b7227d942960f175d33ca2739f3634901635595ecbe931e1739ee970bf42e2605fa2868a6a7efcf3ba6b44436c869217423908d8d36cfa33fed45a66e56408 \
-    -F hash=5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03 \
-    -F file=@test http://127.0.0.1:5000/v1/upload
+    -H 'X-Windrow-Public-Key: 7c67f0e139086212b8dde045dfd12dfc0feecf114327d65943c6e5c269c3d850' \
+    -H 'X-Windrow-Signature: 66b7227d942960f175d33ca2739f3634901635595ecbe931e1739ee970bf42e2605fa2868a6a7efcf3ba6b44436c869217423908d8d36cfa33fed45a66e56408' \
+    -H 'X-Windrow-Hash: 5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03' \
+    --data-binary @test http://127.0.0.1:5000/v1/upload
 ecb65bb98f9d905b70458986c39fcbad7715e5f2fcc3b1f07767d7c83e2438cc
 $
 $ curl http://127.0.0.1:5000/v1/read/ecb65bb98f9d905b70458986c39fcbad7715e5f2fcc3b1f07767d7c83e2438cc -o file
