@@ -1,3 +1,25 @@
+Sigsum leaves only record a `checksum` for poisoning resistance. The `checksum` is the SHA256 hash of a 32-byte `message`. While the `message` is technically an arbitrary bytestring, by convention it always is the SHA256 hash of the artifact you actually care about/want to log.
+
+However, while the log doesn't want to store arbitrary data, you the submitter often *do* want to store it somewhere. In particular, you often want to have a way to go from a checksum back to the artifact (i.e. the pre-preimage of the checksum), for example so that a monitor can find out what a given log entry it observes is actually about.
+
+Currently, people are using ad-hoc schemes for this. Windrow implements a generic checksum-addressed artifact storage based on the "repo" architecture discussions at the 2026-05 Sigsum community meetup.
+
+In particular it performs authentication against a list of permitted submitters, reusing the regular Sigsum leaf signature algorithm for performing it. This allows windrow to then perform the log submission on behalf of the user. This has a number of advantages:
+
+ - We don't need to invent new tooling/credentials to perform authentication
+ - Nothing can end up in the repo without being logged into a transparency log
+ - Windrow can make sure the artifact is available before the log entry gets created, avoiding a race with monitors trying to fetch it.
+
+Windrow also stores the resulting Sigsum proof next to the artifact. This has the side-effect of acting as a timestamping service via the witness cosignatures in the proof.
+
+**Note:** This is just a quick and dirty POC to illustrate the idea. It has many problems, like:
+
+ - Resubmission of the same artifact by different submitters is not handled (there are multiple conceivable ways of going about doing this)
+ - The server accepts and temporarily stores any data sent to it and only then performs authentication on it, leading to a DoS vector (the `hash` argument technically could be used to limit this to authenticated users by first checking the leaf signature based on the hash and rejecting the upload otherwise, but this might not actually work given how Flask handles requests)
+
+# Usage
+
+
 ```
 $ ssh-keygen -t ed25519 -f submitter
 [...]
