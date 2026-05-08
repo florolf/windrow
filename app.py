@@ -143,6 +143,9 @@ def create_app():
                     old_keyhash = bytes.fromhex(line[len('leaf='):].split(' ')[0])
                     break
 
+            while flask.request.stream.read(1024 * 1024):
+                pass
+
             if old_keyhash == sha256(param['public_key']):
                 return hex_cs, 200
 
