@@ -33,26 +33,27 @@ def main() -> int:
         subprocess.run(['sigsum-submit', '-k', args.key, str(staged)], check=True)
         req = parse_request((tmp / 'artifact.req').read_text())
 
-    body = artifact.read_bytes()
-    request = urllib.request.Request(
-        args.url.rstrip('/') + '/v1/upload',
-        data=body,
-        method='POST',
-        headers={
-            'Content-Type': 'application/octet-stream',
-            'X-Windrow-Public-Key': req['public_key'],
-            'X-Windrow-Signature': req['signature'],
-            'X-Windrow-Hash': req['message'],
-        },
-    )
+    with artifact.open('rb') as payload:
+        request = urllib.request.Request(
+            args.url.rstrip('/') + '/v1/upload',
+            data=payload,
+            method='POST',
+            headers={
+                'Content-Type': 'application/octet-stream',
+                'Content-Length': str(artifact.stat().st_size),
+                'X-Windrow-Public-Key': req['public_key'],
+                'X-Windrow-Signature': req['signature'],
+                'X-Windrow-Hash': req['message'],
+            },
+        )
 
-    try:
-        with urllib.request.urlopen(request) as resp:
-            print(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        print(f'upload failed: {e.code} {e.reason}', file=sys.stderr)
-        print(e.read().decode(), file=sys.stderr)
-        return 1
+        try:
+            with urllib.request.urlopen(request) as resp:
+                print(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            print(f'upload failed: {e.code} {e.reason}', file=sys.stderr)
+            print(e.read().decode(), file=sys.stderr)
+            return 1
 
     return 0
 
