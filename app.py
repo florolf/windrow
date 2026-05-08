@@ -123,6 +123,16 @@ def create_app():
         hex_cs = checksum.hex()
         final_path = repo / hex_cs[0:4] / hex_cs
         if final_path.exists():
+            proof_path = final_path.with_suffix('.proof')
+            old_keyhash = None
+            for line in proof_path.read_text().splitlines():
+                if line.startswith('leaf='):
+                    old_keyhash = bytes.fromhex(line[len('leaf='):].split(' ')[0])
+                    break
+
+            if old_keyhash == sha256(param['public_key']):
+                return hex_cs, 200
+
             return 'artifact already exists', 409
 
         tmp_path = repo / 'tmp' / request_id
