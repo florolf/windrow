@@ -16,6 +16,7 @@ Windrow also stores the resulting Sigsum proof next to the artifact. This has th
 
 # Usage
 
+Set up the server with an example key:
 
 ```
 $ ssh-keygen -t ed25519 -f submitter
@@ -27,6 +28,8 @@ $ uv sync
 [...]
 $ WINDROW_WHITELIST=whitelist WINDROW_REPO=/tmp/repo WINDROW_SIGSUM_POLICY=sigsum-test-2025-3 .venv/bin/flask run
 ```
+
+Submit some data (there's also a tool in `submit.py` that streamlines this):
 
 ```
 $ echo hello > test
