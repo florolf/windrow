@@ -55,6 +55,8 @@ def create_app():
     whitelist = set()
     with open(os.environ['WINDROW_WHITELIST']) as f:
         for line in f:
+            if line.startswith('#'):
+                continue
             whitelist.add(bytes.fromhex(line))
 
     sigsum_policy = os.environ['WINDROW_SIGSUM_POLICY']
