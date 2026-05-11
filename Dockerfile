@@ -7,10 +7,8 @@ COPY --from=sigsum /go/bin/sigsum-submit /usr/local/bin/sigsum-submit
 COPY --from=ghcr.io/astral-sh/uv:0.11.11 /uv /usr/local/bin/uv
 
 WORKDIR /app
-COPY pyproject.toml uv.lock /app/
-RUN uv sync --frozen --no-install-project
-
-COPY __init__.py app.py utils.py /app/windrow/
+COPY . /app/
+RUN uv sync --frozen
 
 ENV PATH=/app/.venv/bin:$PATH
 

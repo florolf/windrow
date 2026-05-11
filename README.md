@@ -26,7 +26,7 @@ $ sigsum-key to-hex -k submitter.pub
 $ echo 7c67f0e139086212b8dde045dfd12dfc0feecf114327d65943c6e5c269c3d850 > whitelist
 $ uv sync
 [...]
-$ WINDROW_WHITELIST=whitelist WINDROW_REPO=/tmp/repo WINDROW_SIGSUM_POLICY=sigsum-test-2025-3 .venv/bin/flask run
+$ FLASK_APP=windrow.app WINDROW_WHITELIST=whitelist WINDROW_REPO=/tmp/repo WINDROW_SIGSUM_POLICY=sigsum-test-2025-3 .venv/bin/flask run
 ```
 
 Submit some data (there's also a tool in `submit.py` that streamlines this):
