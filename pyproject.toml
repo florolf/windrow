@@ -16,6 +16,9 @@ dependencies = [
     "pynacl>=1.6.2",
 ]
 
+[project.scripts]
+windrow-submit = "windrow.submit:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
