@@ -2,7 +2,6 @@
 name = "windrow"
 version = "0.1.0"
 description = "Sigsum leaf data repository"
-license = "Apache-2.0"
 readme = "README.md"
 
 authors = [
